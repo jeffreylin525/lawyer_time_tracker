@@ -1228,7 +1228,7 @@ async function syncAllToSheets() {
 
 // ── 從 Sheets 匯入到本機（Sheets → 本機）────────────────
 async function pullFromSheets() {
-  const url = getSheetsUrl();
+  const url = getScriptsUrl();
   if (!url) { showToast('請先填入 Google Apps Script URL'); return; }
 
   addSyncLog('📥 正在從 Sheets 讀取資料…', 'info');
