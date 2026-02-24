@@ -121,6 +121,8 @@
     .btn-accent:hover { background: var(--accent-light); }
     .btn-success { background: var(--success); color: #fff; }
     .btn-danger { background: var(--danger); color: #fff; }
+    .btn-secondary { background: #16a34a; color: #fff; }
+    .btn-secondary:hover { background: #15803d; }
     .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
     .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
     .btn-lg { padding: 14px 28px; font-size: 1.05rem; border-radius: 12px; width: 100%; justify-content: center; }
@@ -488,11 +490,12 @@
         </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-        <button class="btn btn-primary" onclick="syncAllToSheets()">☁️ 全量同步（本機→Sheets）</button>
+        <button class="btn btn-primary" onclick="syncAllToSheets()">☁️ 上傳（本機→Sheets）</button>
+        <button class="btn btn-secondary" onclick="pullFromSheets()">📥 匯入（Sheets→本機）</button>
         <button class="btn btn-outline" onclick="refreshSyncStats()">🔃 重新整理</button>
       </div>
       <div style="font-size:.82rem;color:var(--text-muted);">
-        💡 停止計時後系統會自動嘗試同步。若網路中斷，可在此手動全量同步。
+        💡 <b>上傳</b>：將本機資料推送到 Sheets。<b>匯入</b>：從 Sheets 讀取資料到本機（適合多裝置同步）。
       </div>
     </div>
 
@@ -1220,6 +1223,84 @@ async function syncAllToSheets() {
   } catch(e) {
     addSyncLog('❌ 全量同步失敗：' + e.message, 'err');
     showToast('❌ 同步失敗：' + e.message);
+  }
+}
+
+// ── 從 Sheets 匯入到本機（Sheets → 本機）────────────────
+async function pullFromSheets() {
+  const url = getSheetsUrl();
+  if (!url) { showToast('請先填入 Google Apps Script URL'); return; }
+
+  addSyncLog('📥 正在從 Sheets 讀取資料…', 'info');
+  try {
+    const resp = await fetch(url + '?action=getAll', { mode: 'cors' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    if (!json.ok) throw new Error(json.error || '讀取失敗');
+
+    let newClients = 0, newProjects = 0, newRecords = 0;
+
+    // ① 合併委託人（以 id 去重，沒有 id 則以名稱對應）
+    (json.clients || []).forEach(sc => {
+      const byId   = data.clients.find(c => c.id === sc.id);
+      const byName = data.clients.find(c => c.name === sc.name);
+      if (!byId && !byName) {
+        data.clients.push({ id: sc.id, name: sc.name });
+        newClients++;
+      }
+    });
+
+    // ② 合併計時紀錄（依 clientName / projectName 找到或新建本機 ID）
+    (json.records || []).forEach(sr => {
+      if (data.records.find(r => r.id === sr.id)) return; // 已存在，略過
+
+      // 找委託人（先用 Sheets 回傳的 id，再用名稱）
+      let client = data.clients.find(c => c.id === sr.id)   // (fallback)
+                || data.clients.find(c => c.name === sr.clientName);
+      if (!client) {
+        client = { id: uid(), name: sr.clientName };
+        data.clients.push(client);
+        newClients++;
+      }
+
+      // 找專案（同一委託人下同名專案）
+      let project = data.projects.find(p => p.clientId === client.id && p.name === sr.projectName);
+      if (!project) {
+        project = { id: uid(), clientId: client.id, name: sr.projectName, deadline: '', archived: false };
+        data.projects.push(project);
+        newProjects++;
+      }
+
+      // 新增紀錄
+      data.records.push({
+        id:        sr.id,
+        clientId:  client.id,
+        projectId: project.id,
+        date:      sr.date    || '',
+        dateISO:   sr.date    || '',
+        start:     sr.start   || '',
+        end:       sr.end     || '',
+        duration:  Number(sr.duration) || 0,
+        note:      sr.note    || ''
+      });
+      newRecords++;
+    });
+
+    saveData();
+    // 將已匯入的 ID 標記為已同步（避免之後上傳時重複計算）
+    markSynced((json.records || []).map(r => r.id));
+
+    refreshSyncStats();
+    populateAllDropdowns();
+    renderRecords();
+
+    const msg = `✅ 匯入完成：${newClients} 委託人｜${newProjects} 專案｜${newRecords} 筆紀錄`;
+    addSyncLog(msg, 'ok');
+    showToast(msg);
+
+  } catch(e) {
+    addSyncLog('❌ 從 Sheets 匯入失敗：' + e.message, 'err');
+    showToast('❌ 匯入失敗：' + e.message);
   }
 }
 
