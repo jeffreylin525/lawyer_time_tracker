@@ -3,7 +3,7 @@
  * 策略：Cache-First（靜態資源）
  */
 
-const CACHE_NAME = 'lawyer-timer-v1';
+const CACHE_NAME = 'lawyer-timer-v2';
 
 // 需要預先快取的靜態資源
 const PRECACHE_URLS = [
