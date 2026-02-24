@@ -1,15 +1,28 @@
 {
-  "name": "律師案件計時管理系統",
-  "short_name": "律師計時系統",
+  "name": "律師計時管理系統",
+  "short_name": "律師計時",
+  "description": "專為律師設計的計時與專案管理工具，支援委託人、專案追蹤與期限提醒",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2c3e50",
+  "orientation": "portrait-primary",
+  "theme_color": "#1a3557",
+  "background_color": "#1a3557",
+  "lang": "zh-TW",
   "icons": [
     {
       "src": "icon.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": ["productivity", "utilities"],
+  "screenshots": []
 }
