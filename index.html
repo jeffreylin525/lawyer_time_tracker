@@ -2,8 +2,26 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>律師計時管理系統</title>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Theme color (瀏覽器 UI 顏色) -->
+  <meta name="theme-color" content="#1a3557" />
+  <meta name="msapplication-TileColor" content="#1a3557" />
+
+  <!-- iOS PWA 支援 -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="律師計時" />
+  <link rel="apple-touch-icon" href="icon.png" />
+
+  <!-- Android / SEO -->
+  <meta name="application-name" content="律師計時管理系統" />
+  <meta name="description" content="委託人專案計時、累計耗費時間及截止期限提醒工具" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <style>
     :root {
       --primary: #1a3557;
@@ -184,9 +202,90 @@
       .btn-lg { font-size: .95rem; }
       .tab-btn { font-size: .78rem; padding: 8px 4px; }
     }
+
+    /* ── PWA / iOS Safe Area ── */
+    body {
+      padding-bottom: max(40px, env(safe-area-inset-bottom));
+    }
+    header {
+      padding-top: max(18px, calc(env(safe-area-inset-top) + 8px));
+      padding-left:  max(24px, env(safe-area-inset-left));
+      padding-right: max(24px, env(safe-area-inset-right));
+    }
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 90;
+    }
+
+    /* 增大手機觸控目標 */
+    @media (hover: none) and (pointer: coarse) {
+      .btn   { min-height: 44px; }
+      .tab-btn { min-height: 40px; }
+      select, input[type="text"], input[type="date"] { min-height: 44px; }
+      .del-btn { padding: 6px; }
+    }
+
+    /* PWA 安裝橫幅 */
+    #installBanner {
+      display: none;
+      background: linear-gradient(135deg, var(--accent), #b8972e);
+      color: #fff;
+      padding: 10px 16px;
+      align-items: center;
+      gap: 10px;
+      font-size: .88rem;
+    }
+    #installBanner button {
+      background: rgba(255,255,255,.25);
+      color: #fff;
+      border: 1.5px solid rgba(255,255,255,.6);
+      border-radius: 7px;
+      padding: 5px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: .85rem;
+      white-space: nowrap;
+    }
+    #installBanner .install-dismiss {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      opacity: .7;
+      cursor: pointer;
+      margin-left: auto;
+      padding: 0 4px;
+    }
+
+    /* 離線提示 */
+    #offlineBanner {
+      display: none;
+      background: #374151;
+      color: #fff;
+      text-align: center;
+      padding: 8px;
+      font-size: .82rem;
+    }
   </style>
 </head>
 <body>
+
+<!-- PWA 安裝橫幅 (Android/Chrome) -->
+<div id="installBanner">
+  <span>📲 安裝到手機主畫面，隨時快速開啟</span>
+  <button id="installBtn">安裝 App</button>
+  <button class="install-dismiss" onclick="dismissInstall()">✕</button>
+</div>
+
+<!-- 離線提示 -->
+<div id="offlineBanner">⚡ 目前為離線模式，資料仍可正常使用</div>
+
+<!-- iOS 安裝提示 (Safari) -->
+<div id="iosBanner" style="display:none;background:#1a3557;color:#fff;padding:12px 16px;font-size:.85rem;text-align:center;line-height:1.6;">
+  📱 在 Safari 中：點選下方 <strong>分享</strong> 按鈕 →「<strong>加入主畫面</strong>」即可安裝
+  <button onclick="document.getElementById('iosBanner').style.display='none'"
+    style="display:block;margin:8px auto 0;background:rgba(255,255,255,.2);border:none;color:#fff;padding:4px 16px;border-radius:6px;cursor:pointer;">知道了</button>
+</div>
 
 <div id="notifBar">
   <span>🔔 允許通知以接收專案期限提醒</span>
@@ -1147,6 +1246,94 @@ function showToast(msg) {
   if (_toastTimeout) clearTimeout(_toastTimeout);
   _toastTimeout = setTimeout(() => t.classList.remove('show'), 2800);
 }
+
+/* ============================================================
+   PWA：Service Worker 註冊
+   ============================================================ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        console.log('[PWA] Service Worker 已註冊，範圍：', reg.scope);
+        // 有新版本時提示
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              showToast('🔄 有新版本可用，請重新整理頁面');
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('[PWA] Service Worker 註冊失敗：', err));
+  });
+}
+
+/* ============================================================
+   PWA：安裝提示 (Android / Chrome)
+   ============================================================ */
+let _deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  // 若使用者未曾關閉橫幅，才顯示
+  if (localStorage.getItem('installDismissed') !== 'true') {
+    document.getElementById('installBanner').style.display = 'flex';
+  }
+});
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  const { outcome } = await _deferredInstallPrompt.userChoice;
+  if (outcome === 'accepted') {
+    showToast('✅ App 已安裝！');
+    document.getElementById('installBanner').style.display = 'none';
+  }
+  _deferredInstallPrompt = null;
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').style.display = 'none';
+  showToast('🎉 律師計時 App 安裝成功！');
+});
+
+function dismissInstall() {
+  document.getElementById('installBanner').style.display = 'none';
+  localStorage.setItem('installDismissed', 'true');
+}
+
+/* ============================================================
+   PWA：iOS Safari 安裝提示
+   ============================================================ */
+(function checkiOSInstall() {
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isInStandalone = window.navigator.standalone === true;
+  const dismissed = localStorage.getItem('iosBannerDismissed') === 'true';
+  if (isIOS && !isInStandalone && !dismissed) {
+    // 延遲 2 秒再顯示，避免頁面剛載入就被橫幅遮蓋
+    setTimeout(() => {
+      document.getElementById('iosBanner').style.display = 'block';
+      localStorage.setItem('iosBannerDismissed', 'true'); // 只顯示一次
+    }, 2000);
+  }
+})();
+
+/* ============================================================
+   PWA：離線 / 上線偵測
+   ============================================================ */
+function updateOnlineStatus() {
+  const banner = document.getElementById('offlineBanner');
+  if (!navigator.onLine) {
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+window.addEventListener('online',  updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus(); // 初始檢查
 
 /* ============================================================
    啟動
