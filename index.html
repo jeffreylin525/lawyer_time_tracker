@@ -1195,9 +1195,18 @@ async function syncAllToSheets() {
   if (!url) { showToast('請先設定 Apps Script URL'); switchTab('sheets', document.querySelector('.tab-btn:last-child')); return; }
   showToast('☁️ 同步中，請稍候…');
   addSyncLog('開始全量同步…', 'info');
+  // 在 records 中帶入 clientName / projectName，讓後端不必查 ID
+  const enrichedRecords = data.records.map(r => {
+    const c = data.clients.find(c => c.id === r.clientId);
+    const p = data.projects.find(p => p.id === r.projectId);
+    return Object.assign({}, r, {
+      clientName:  c ? c.name : '(未知)',
+      projectName: p ? p.name : '(未知)'
+    });
+  });
   const payload = {
     action: 'syncAll',
-    data:   { records: data.records, clients: data.clients, projects: data.projects }
+    data:   { records: enrichedRecords, clients: data.clients, projects: data.projects }
   };
   try {
     const resp = await fetch(url, {
@@ -1227,8 +1236,31 @@ async function syncAllToSheets() {
 }
 
 // ── 從 Sheets 匯入到本機（Sheets → 本機）────────────────
+
+/** 將 Google Sheets 回傳的日期/時間值轉為可讀字串 */
+function normVal(v) {
+  if (v == null) return '';
+  const s = String(v);
+  // Apps Script 的 Date 物件經 JSON.stringify 後會變成 ISO 字串
+  // 例如 "2026-02-22T00:00:00.000Z" 或 "1899-12-30T01:01:09.000Z"（時間欄）
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+    const d = new Date(s);
+    if (isNaN(d)) return s;
+    // 判斷是「日期」還是「時間」：1899/1900 開頭代表純時間
+    if (d.getFullYear() <= 1900) {
+      // 純時間 → 取 HH:MM:SS
+      return d.getUTCHours() + ':' +
+             String(d.getUTCMinutes()).padStart(2,'0') + ':' +
+             String(d.getUTCSeconds()).padStart(2,'0');
+    }
+    // 日期 → 取 YYYY/M/D
+    return d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate();
+  }
+  return s;
+}
+
 async function pullFromSheets() {
-  const url = getScriptsUrl();
+  const url = getScriptUrl();
   if (!url) { showToast('請先填入 Google Apps Script URL'); return; }
 
   addSyncLog('📥 正在從 Sheets 讀取資料…', 'info');
@@ -1238,65 +1270,79 @@ async function pullFromSheets() {
     const json = await resp.json();
     if (!json.ok) throw new Error(json.error || '讀取失敗');
 
-    let newClients = 0, newProjects = 0, newRecords = 0;
+    const remoteClients = json.clients || [];
+    const remoteRecords = json.records || [];
+    addSyncLog(`📥 Sheets 回傳：${remoteClients.length} 委託人，${remoteRecords.length} 筆紀錄`, 'info');
 
-    // ① 合併委託人（以 id 去重，沒有 id 則以名稱對應）
-    (json.clients || []).forEach(sc => {
-      const byId   = data.clients.find(c => c.id === sc.id);
+    let newClients = 0, newProjects = 0, newRecords = 0, skipped = 0;
+
+    // ① 合併委託人（以名稱去重）
+    remoteClients.forEach(sc => {
       const byName = data.clients.find(c => c.name === sc.name);
-      if (!byId && !byName) {
-        data.clients.push({ id: sc.id, name: sc.name });
+      if (!byName) {
+        data.clients.push({ id: sc.id || uid(), name: sc.name });
         newClients++;
       }
     });
 
-    // ② 合併計時紀錄（依 clientName / projectName 找到或新建本機 ID）
-    (json.records || []).forEach(sr => {
-      if (data.records.find(r => r.id === sr.id)) return; // 已存在，略過
+    // ② 合併計時紀錄
+    remoteRecords.forEach(sr => {
+      const rid = String(sr.id || '');
+      if (!rid) return;
 
-      // 找委託人（先用 Sheets 回傳的 id，再用名稱）
-      let client = data.clients.find(c => c.id === sr.id)   // (fallback)
-                || data.clients.find(c => c.name === sr.clientName);
+      // 用字串比對 ID，避免型別不一致
+      if (data.records.find(r => String(r.id) === rid)) { skipped++; return; }
+
+      // 找委託人（用名稱）
+      const cName = String(sr.clientName || '').trim();
+      const pName = String(sr.projectName || '').trim();
+      if (!cName || !pName) return;
+
+      let client = data.clients.find(c => c.name === cName);
       if (!client) {
-        client = { id: uid(), name: sr.clientName };
+        client = { id: uid(), name: cName };
         data.clients.push(client);
         newClients++;
       }
 
       // 找專案（同一委託人下同名專案）
-      let project = data.projects.find(p => p.clientId === client.id && p.name === sr.projectName);
+      let project = data.projects.find(p => p.clientId === client.id && p.name === pName);
       if (!project) {
-        project = { id: uid(), clientId: client.id, name: sr.projectName, deadline: '', archived: false };
+        project = { id: uid(), clientId: client.id, name: pName, deadline: '', archived: false };
         data.projects.push(project);
         newProjects++;
       }
 
-      // 新增紀錄
+      // 新增紀錄（日期/時間做正規化）
       data.records.push({
-        id:        sr.id,
+        id:        rid,
         clientId:  client.id,
         projectId: project.id,
-        date:      sr.date    || '',
-        dateISO:   sr.date    || '',
-        start:     sr.start   || '',
-        end:       sr.end     || '',
+        date:      normVal(sr.date),
+        dateISO:   normVal(sr.date),
+        start:     normVal(sr.start),
+        end:       normVal(sr.end),
         duration:  Number(sr.duration) || 0,
-        note:      sr.note    || ''
+        note:      sr.note || ''
       });
       newRecords++;
     });
 
     saveData();
-    // 將已匯入的 ID 標記為已同步（避免之後上傳時重複計算）
-    markSynced((json.records || []).map(r => r.id));
-
+    markSynced(remoteRecords.map(r => String(r.id)));
     refreshSyncStats();
     populateAllDropdowns();
     renderRecords();
 
-    const msg = `✅ 匯入完成：${newClients} 委託人｜${newProjects} 專案｜${newRecords} 筆紀錄`;
-    addSyncLog(msg, 'ok');
-    showToast(msg);
+    if (newRecords > 0) {
+      const msg = `✅ 匯入完成：${newClients} 委託人｜${newProjects} 專案｜${newRecords} 筆紀錄`;
+      addSyncLog(msg, 'ok');
+      showToast(msg);
+    } else {
+      const msg = `ℹ️ Sheets 共 ${remoteRecords.length} 筆，本機已有 ${skipped} 筆，無新紀錄需匯入`;
+      addSyncLog(msg, 'info');
+      showToast(msg);
+    }
 
   } catch(e) {
     addSyncLog('❌ 從 Sheets 匯入失敗：' + e.message, 'err');
