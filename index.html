@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>律師計時管理系統</title>
+  <style>
+    :root {
+      --primary: #1a3557;
+      --primary-light: #2a4f7c;
+      --accent: #c9a84c;
+      --accent-light: #e2c476;
+      --bg: #f0f2f5;
+      --card: #ffffff;
+      --text: #1a1a2e;
+      --text-muted: #6b7280;
+      --border: #d1d5db;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --info: #0284c7;
+      --radius: 12px;
+      --shadow: 0 2px 16px rgba(26,53,87,0.10);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+    header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: #fff;
+      padding: 18px 24px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 12px rgba(26,53,87,0.25);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header .logo { font-size: 28px; }
+    header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: .02em; }
+    header .subtitle { font-size: .75rem; opacity: .75; margin-top: 2px; }
+    header .header-right { margin-left: auto; text-align: right; font-size: .75rem; opacity: .8; }
+    #alertBanner {
+      display: none;
+      background: #fff3cd;
+      border-left: 5px solid var(--warning);
+      padding: 12px 20px;
+      font-size: .9rem;
+    }
+    #alertBanner .alert-title { font-weight: 700; color: var(--warning); margin-bottom: 6px; }
+    #alertBanner ul { padding-left: 20px; }
+    #alertBanner li { margin-bottom: 4px; }
+    .container { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--card); border-radius: var(--radius); padding: 5px; box-shadow: var(--shadow); flex-wrap: wrap; }
+    .tab-btn {
+      flex: 1; padding: 10px 8px; border: none; background: transparent;
+      border-radius: 9px; font-size: .85rem; font-weight: 600; color: var(--text-muted);
+      cursor: pointer; transition: all .2s; min-width: 60px;
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; }
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+    .card-title {
+      font-size: 1rem; font-weight: 700; color: var(--primary);
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 8px; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 160px; }
+    .form-group label { font-size: .8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+    .form-group select, .form-group input[type="text"], .form-group input[type="date"], .form-group textarea {
+      padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: .95rem; color: var(--text); background: #fff; transition: border-color .2s; width: 100%;
+    }
+    .form-group select:focus, .form-group input:focus, .form-group textarea:focus {
+      outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,53,87,.12);
+    }
+    .form-group textarea { resize: vertical; min-height: 72px; }
+    .timer-section {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      border-radius: var(--radius); padding: 24px 20px; color: #fff; text-align: center;
+      margin-bottom: 16px; box-shadow: var(--shadow);
+    }
+    .timer-display { font-size: 3rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .05em; }
+    .timer-label { font-size: .8rem; opacity: .7; margin-top: 4px; text-transform: uppercase; letter-spacing: .1em; }
+    .timer-cumulative { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.2); }
+    .timer-cumulative .cum-label { font-size: .75rem; opacity: .7; }
+    .timer-cumulative .cum-value { font-size: 1.6rem; font-weight: 700; }
+    .timer-context { font-size: .85rem; opacity: .85; margin-top: 8px; }
+    .btn {
+      padding: 11px 20px; border-radius: 9px; border: none; font-size: .9rem; font-weight: 600;
+      cursor: pointer; transition: all .18s; display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-light); }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover { background: var(--accent-light); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-lg { padding: 14px 28px; font-size: 1.05rem; border-radius: 12px; width: 100%; justify-content: center; }
+    .btn-sm { padding: 6px 12px; font-size: .78rem; border-radius: 6px; }
+    .btn-start { background: linear-gradient(135deg, #16a34a, #15803d); color: #fff; font-size: 1.1rem; }
+    .btn-stop  { background: linear-gradient(135deg, #dc2626, #b91c1c); color: #fff; font-size: 1.1rem; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: .75rem; font-weight: 600; }
+    .badge-success { background: #dcfce7; color: #16a34a; }
+    .badge-danger  { background: #fee2e2; color: #dc2626; }
+    .badge-warning { background: #fef3c7; color: #d97706; }
+    .badge-info    { background: #e0f2fe; color: #0284c7; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    th { background: var(--primary); color: #fff; padding: 10px 12px; text-align: left; font-weight: 600; font-size: .8rem; letter-spacing: .03em; }
+    th:first-child { border-radius: 8px 0 0 0; }
+    th:last-child  { border-radius: 0 8px 0 0; }
+    td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8f9fa; }
+    .deadline-ok     { color: var(--success); }
+    .deadline-warn   { color: var(--warning); font-weight: 700; }
+    .deadline-danger { color: var(--danger);  font-weight: 700; }
+    .list-items { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .list-item { display: inline-flex; align-items: center; gap: 6px; background: #f3f4f6; border-radius: 99px; padding: 5px 12px; font-size: .85rem; }
+    .list-item .del-btn { background: none; border: none; cursor: pointer; color: var(--danger); font-size: 1rem; line-height: 1; padding: 0; margin-left: 2px; }
+    .add-row { display: flex; gap: 8px; }
+    .add-row input { flex: 1; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: .9rem; }
+    .add-row input:focus { outline: none; border-color: var(--primary); }
+    .empty { text-align: center; color: var(--text-muted); padding: 32px; font-size: .95rem; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    #toast {
+      position: fixed; top: 20px; right: 20px; z-index: 9999;
+      background: var(--primary); color: #fff; padding: 12px 18px;
+      border-radius: 10px; font-size: .9rem; box-shadow: 0 4px 20px rgba(0,0,0,.2);
+      transform: translateX(120%); transition: transform .3s; max-width: 300px;
+    }
+    #toast.show { transform: translateX(0); }
+    .divider { height: 1px; background: var(--border); margin: 16px 0; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .stat-card { background: #f8f9fa; border-radius: 10px; padding: 14px; text-align: center; border: 1.5px solid var(--border); }
+    .stat-value { font-size: 1.6rem; font-weight: 700; color: var(--primary); }
+    .stat-label { font-size: .75rem; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .05em; }
+    .filter-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; }
+    .filter-row .form-group { flex: 1; min-width: 120px; }
+    #notifBar {
+      background: var(--info); color: #fff; text-align: center; padding: 8px 16px;
+      font-size: .82rem; display: none; align-items: center; justify-content: center; gap: 10px;
+    }
+    #notifBar button { background: #fff; color: var(--info); border: none; border-radius: 6px; padding: 4px 12px; font-weight: 700; cursor: pointer; font-size: .82rem; }
+    .running-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #4ade80; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+    /* Toggle switch */
+    .toggle-wrap { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
+    .toggle-wrap + .toggle-wrap { border-top: 1px solid var(--border); }
+    .toggle-info .toggle-title { font-weight: 600; font-size: .95rem; }
+    .toggle-info .toggle-sub   { font-size: .8rem; color: var(--text-muted); margin-top: 2px; }
+    .toggle-switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background: #ccc; border-radius: 26px; transition: .3s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute; height: 20px; width: 20px;
+      left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .3s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--success); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+    /* Sync status badge */
+    .sync-badge { display: inline-flex; align-items: center; gap: 5px; font-size: .82rem; padding: 4px 10px; border-radius: 99px; font-weight: 600; }
+    .sync-ok  { background: #dcfce7; color: #16a34a; }
+    .sync-err { background: #fee2e2; color: #dc2626; }
+    .sync-pending { background: #fef3c7; color: #d97706; }
+    @media (max-width: 600px) {
+      header h1 { font-size: 1rem; }
+      .timer-display { font-size: 2.2rem; }
+      .form-row { flex-direction: column; }
+      .btn-lg { font-size: .95rem; }
+      .tab-btn { font-size: .78rem; padding: 8px 4px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="notifBar">
+  <span>🔔 允許通知以接收專案期限提醒</span>
+  <button onclick="requestNotifPermission()">允許通知</button>
+  <button onclick="document.getElementById('notifBar').style.display='none'" style="background:rgba(255,255,255,.3);color:#fff;">稍後</button>
+</div>
+
+<header>
+  <div class="logo">⚖️</div>
+  <div>
+    <h1>律師計時管理系統</h1>
+    <div class="subtitle">Attorney Time Tracking &amp; Deadline Manager</div>
+  </div>
+  <div class="header-right">
+    <div id="currentTime"></div>
+    <div id="currentDate" style="font-size:.68rem;opacity:.6;"></div>
+  </div>
+</header>
+
+<div id="alertBanner">
+  <div class="alert-title">⚠️ 專案期限提醒</div>
+  <ul id="alertList"></ul>
+</div>
+
+<div id="toast"></div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('timer',this)">⏱ 計時</button>
+    <button class="tab-btn" onclick="switchTab('records',this)">📋 紀錄</button>
+    <button class="tab-btn" onclick="switchTab('projects',this)">📁 專案</button>
+    <button class="tab-btn" onclick="switchTab('manage',this)">⚙️ 管理</button>
+    <button class="tab-btn" onclick="switchTab('sheets',this)">☁️ 雲端</button>
+  </div>
+
+  <!-- ========== TAB: TIMER ========== -->
+  <div id="tab-timer" class="tab-content active">
+    <div class="timer-section">
+      <div class="timer-label">本次計時</div>
+      <div class="timer-display" id="timerDisplay">00:00:00</div>
+      <div class="timer-context" id="timerContext">尚未開始計時</div>
+      <div class="timer-cumulative">
+        <div class="cum-label">專案累計時間</div>
+        <div class="cum-value" id="cumulativeDisplay">—</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📝 工作記錄</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>委託人</label>
+          <select id="clientSelect" onchange="onClientChange()">
+            <option value="">— 請選擇委託人 —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>專案</label>
+          <select id="projectSelect" onchange="onProjectChange()">
+            <option value="">— 請選擇專案 —</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2;">
+          <label>本次工作內容</label>
+          <textarea id="workNote" placeholder="請輸入本次專案工作或備注內容…"></textarea>
+        </div>
+      </div>
+      <button id="timerBtn" class="btn btn-start btn-lg" onclick="toggleTimer()">
+        <span id="timerBtnIcon">▶</span>
+        <span id="timerBtnText">開始計時</span>
+      </button>
+    </div>
+  </div><!-- END tab-timer -->
+
+  <!-- ========== TAB: RECORDS ========== -->
+  <div id="tab-records" class="tab-content">
+    <div class="card">
+      <div class="card-title">📋 工作記錄查詢</div>
+      <div class="filter-row">
+        <div class="form-group">
+          <label>篩選委託人</label>
+          <select id="filterClient" onchange="renderRecords()">
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>篩選專案</label>
+          <select id="filterProject" onchange="renderRecords()">
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn btn-outline btn-sm" onclick="exportCSV()">📥 匯出 CSV</button>
+        </div>
+      </div>
+      <div class="stats-grid" id="recordStats"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th><th>委託人</th><th>專案</th>
+              <th>工作內容</th><th>本次時間</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody">
+            <tr><td colspan="6" class="empty">尚無紀錄</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- END tab-records -->
+
+  <!-- ========== TAB: PROJECTS ========== -->
+  <div id="tab-projects" class="tab-content">
+    <div class="card">
+      <div class="card-title">📁 專案總覽</div>
+      <div id="projectsOverview"><div class="empty">尚無專案資料</div></div>
+    </div>
+  </div><!-- END tab-projects -->
+
+  <!-- ========== TAB: MANAGE ========== -->
+  <div id="tab-manage" class="tab-content">
+    <div class="card">
+      <div class="card-title">👤 委託人管理</div>
+      <div class="add-row">
+        <input type="text" id="newClientInput" placeholder="新增委託人姓名…" onkeydown="if(event.key==='Enter')addClient()" />
+        <button class="btn btn-primary" onclick="addClient()">＋ 新增</button>
+      </div>
+      <div class="list-items" id="clientList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📁 專案管理</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>委託人</label>
+          <select id="newProjClient">
+            <option value="">— 請選擇 —</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label>專案名稱</label>
+          <input type="text" id="newProjName" placeholder="專案名稱…" />
+        </div>
+        <div class="form-group">
+          <label>專案期限</label>
+          <input type="date" id="newProjDeadline" />
+        </div>
+      </div>
+      <button class="btn btn-accent" onclick="addProject()">＋ 新增專案</button>
+      <div class="divider"></div>
+      <div id="manageProjectList"><div class="empty">尚無專案</div></div>
+    </div>
+    <div class="card" style="border:1.5px solid #fee2e2;">
+      <div class="card-title" style="color:var(--danger);">🗑 資料管理</div>
+      <button class="btn btn-outline btn-sm" onclick="clearAllData()" style="color:var(--danger);border-color:var(--danger);">清除全部資料</button>
+    </div>
+  </div><!-- END tab-manage -->
+
+  <!-- ========== TAB: SHEETS ========== -->
+  <div id="tab-sheets" class="tab-content">
+
+    <div class="card">
+      <div class="card-title">☁️ Google Sheets 雲端同步設定</div>
+      <div style="background:#f0f7ff;border-radius:9px;padding:14px;margin-bottom:16px;font-size:.88rem;line-height:1.8;border-left:4px solid var(--info);">
+        <strong>設定步驟（只需做一次）：</strong><br>
+        1. 開啟 Google Sheets，建立新試算表<br>
+        2. 上方選單「擴充功能」→「Apps Script」，貼上 <code>Code.gs</code> 內容並儲存<br>
+        3. 「部署」→「新增部署」→ 類型選「網頁應用程式」<br>
+        &nbsp;&nbsp;&nbsp;• 以哪個身分執行：<strong>我</strong>　&nbsp;誰可以存取：<strong>所有人</strong><br>
+        4. 複製部署 URL（以 /exec 結尾），貼到下方
+      </div>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label>Apps Script 部署 URL</label>
+        <input type="text" id="appsScriptUrl"
+          placeholder="https://script.google.com/macros/s/xxxxxx/exec"
+          style="font-size:.85rem;"
+          oninput="saveScriptUrl()" />
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="testConnection()">🔌 測試連線</button>
+        <div id="connStatus" style="font-size:.88rem;color:var(--text-muted);">尚未測試</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔄 資料同步</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="syncPendingCount">—</div>
+          <div class="stat-label">待同步筆數</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="syncedCount">—</div>
+          <div class="stat-label">已同步筆數</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="lastSyncTime" style="font-size:.95rem;">—</div>
+          <div class="stat-label">最後同步時間</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <button class="btn btn-primary" onclick="syncAllToSheets()">☁️ 全量同步（本機→Sheets）</button>
+        <button class="btn btn-outline" onclick="refreshSyncStats()">🔃 重新整理</button>
+      </div>
+      <div style="font-size:.82rem;color:var(--text-muted);">
+        💡 停止計時後系統會自動嘗試同步。若網路中斷，可在此手動全量同步。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ 自動同步設定</div>
+      <div class="toggle-wrap">
+        <div class="toggle-info">
+          <div class="toggle-title">停止計時後自動同步</div>
+          <div class="toggle-sub">每次計時結束自動上傳到 Google Sheets</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="autoSyncToggle" onchange="saveSettings()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="toggle-wrap">
+        <div class="toggle-info">
+          <div class="toggle-title">顯示同步狀態通知</div>
+          <div class="toggle-sub">每次同步後顯示成功或失敗提示</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="showSyncNotif" checked onchange="saveSettings()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📜 同步紀錄</div>
+      <div id="syncLog" style="font-size:.82rem;max-height:220px;overflow-y:auto;">
+        <div class="empty">尚無同步記錄</div>
+      </div>
+    </div>
+
+  </div><!-- END tab-sheets -->
+
+</div><!-- END .container -->
+
+<script>
+/* ============================================================
+   資料層
+   ============================================================ */
+let data = {
+  clients:  [],   // [{id, name}]
+  projects: [],   // [{id, clientId, name, deadline, archived}]
+  records:  []    // [{id, clientId, projectId, date, dateISO, start, end, duration, note}]
+};
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem('lawyerTimerData');
+    if (saved) data = JSON.parse(saved);
+  } catch(e) {}
+}
+
+function saveData() {
+  localStorage.setItem('lawyerTimerData', JSON.stringify(data));
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+
+/* ============================================================
+   初始化
+   ============================================================ */
+loadData();
+
+function init() {
+  updateClock();
+  setInterval(updateClock, 1000);
+  populateAllDropdowns();
+  checkDeadlines();
+  setInterval(checkDeadlines, 60 * 60 * 1000);
+  checkNotifPermission();
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('currentTime').textContent = now.toLocaleTimeString('zh-TW');
+  document.getElementById('currentDate').textContent =
+    now.toLocaleDateString('zh-TW', {year:'numeric',month:'long',day:'numeric',weekday:'short'});
+}
+
+/* ============================================================
+   分頁切換
+   ============================================================ */
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (tab === 'records')  renderRecords();
+  if (tab === 'projects') renderProjectsOverview();
+  if (tab === 'manage')   renderManageProjects();
+  if (tab === 'sheets')   loadSheetsTab();
+}
+
+/* ============================================================
+   委託人
+   ============================================================ */
+function addClient() {
+  const input = document.getElementById('newClientInput');
+  const name  = input.value.trim();
+  if (!name) { showToast('請輸入委託人姓名'); return; }
+  if (data.clients.find(c => c.name === name)) { showToast('委託人已存在'); return; }
+  data.clients.push({ id: uid(), name });
+  input.value = '';
+  saveData();
+  populateAllDropdowns();
+  renderClientList();
+  showToast('已新增：' + name);
+}
+
+function deleteClient(id) {
+  if (!confirm('確定要刪除此委託人？')) return;
+  data.clients = data.clients.filter(c => c.id !== id);
+  saveData();
+  populateAllDropdowns();
+  renderClientList();
+}
+
+function renderClientList() {
+  const container = document.getElementById('clientList');
+  if (!data.clients.length) {
+    container.innerHTML = '<span style="color:var(--text-muted);font-size:.85rem;">尚無委託人</span>';
+    return;
+  }
+  container.innerHTML = data.clients.map(c =>
+    `<div class="list-item">
+      <span>👤 ${escHtml(c.name)}</span>
+      <button class="del-btn" onclick="deleteClient('${c.id}')">✕</button>
+    </div>`
+  ).join('');
+}
+
+/* ============================================================
+   專案
+   ============================================================ */
+function addProject() {
+  const clientId = document.getElementById('newProjClient').value;
+  const name     = document.getElementById('newProjName').value.trim();
+  const deadline = document.getElementById('newProjDeadline').value;
+  if (!clientId) { showToast('請選擇委託人'); return; }
+  if (!name)     { showToast('請輸入專案名稱'); return; }
+  if (data.projects.find(p => p.clientId === clientId && p.name === name && !p.archived)) {
+    showToast('此委託人已有同名專案'); return;
+  }
+  data.projects.push({ id: uid(), clientId, name, deadline: deadline || '', archived: false });
+  document.getElementById('newProjName').value    = '';
+  document.getElementById('newProjDeadline').value = '';
+  saveData();
+  populateAllDropdowns();
+  renderManageProjects();
+  checkDeadlines();
+  showToast('已新增專案：' + name);
+}
+
+function deleteProject(id) {
+  if (!confirm('確定要刪除此專案？（計時紀錄仍保留）')) return;
+  data.projects = data.projects.filter(p => p.id !== id);
+  saveData();
+  populateAllDropdowns();
+  renderManageProjects();
+}
+
+function updateDeadline(id, val) {
+  const proj = data.projects.find(p => p.id === id);
+  if (proj) { proj.deadline = val; saveData(); checkDeadlines(); }
+}
+
+function renderManageProjects() {
+  const container = document.getElementById('manageProjectList');
+  if (!data.projects.length) { container.innerHTML = '<div class="empty">尚無專案</div>'; return; }
+  const sorted = [...data.projects].sort((a,b) => (a.deadline||'9999') > (b.deadline||'9999') ? 1 : -1);
+  container.innerHTML = sorted.map(p => {
+    const client    = data.clients.find(c => c.id === p.clientId);
+    const clientName = client ? client.name : '(已刪除)';
+    const cum       = getProjectCumulative(p.id);
+    return `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-weight:700;">${escHtml(p.name)}</div>
+          <div style="font-size:.8rem;color:var(--text-muted);">👤 ${escHtml(clientName)} ｜ ⏱ 累計 ${formatDuration(cum)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${deadlineStatus(p.deadline)}
+          <input type="date" value="${p.deadline||''}" onchange="updateDeadline('${p.id}',this.value)"
+            style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:.8rem;" />
+          <button class="btn btn-sm" style="background:#fee2e2;color:var(--danger);border:none;" onclick="deleteProject('${p.id}')">刪除</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ============================================================
+   下拉選單
+   ============================================================ */
+function populateAllDropdowns() {
+  ['clientSelect','newProjClient','filterClient'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    const isFilter = (id === 'filterClient');
+    sel.innerHTML = (isFilter ? '<option value="">全部委託人</option>' : '<option value="">— 請選擇委託人 —</option>') +
+      data.clients.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('');
+    if (cur) sel.value = cur;
+  });
+  renderClientList();
+  updateProjectDropdowns();
+}
+
+function updateProjectDropdowns() {
+  const clientId = document.getElementById('clientSelect')?.value || '';
+  const ps  = document.getElementById('projectSelect');
+  const fps = document.getElementById('filterProject');
+  if (ps) {
+    const cur   = ps.value;
+    const projs = clientId ? data.projects.filter(p => p.clientId === clientId && !p.archived) : [];
+    ps.innerHTML = '<option value="">— 請選擇專案 —</option>' +
+      projs.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+    if (cur) ps.value = cur;
+  }
+  if (fps) {
+    const filterCid = document.getElementById('filterClient')?.value || '';
+    const projs = filterCid ? data.projects.filter(p => p.clientId === filterCid) : data.projects;
+    fps.innerHTML = '<option value="">全部專案</option>' +
+      projs.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+  }
+  onProjectChange();
+}
+
+function onClientChange() { updateProjectDropdowns(); }
+function onProjectChange() {
+  const projId = document.getElementById('projectSelect')?.value;
+  const cum    = projId ? getProjectCumulative(projId) : 0;
+  document.getElementById('cumulativeDisplay').textContent = projId ? formatDuration(cum) : '—';
+}
+
+/* ============================================================
+   計時器
+   ============================================================ */
+let timerRunning = false;
+let timerStart   = null;
+let timerInterval = null;
+let currentRecord = null;
+
+function toggleTimer() {
+  timerRunning ? stopTimer() : startTimer();
+}
+
+function startTimer() {
+  const clientId  = document.getElementById('clientSelect').value;
+  const projectId = document.getElementById('projectSelect').value;
+  if (!clientId)  { showToast('請先選擇委託人'); return; }
+  if (!projectId) { showToast('請先選擇專案');   return; }
+
+  timerRunning  = true;
+  timerStart    = Date.now();
+  currentRecord = { clientId, projectId };
+
+  const btn = document.getElementById('timerBtn');
+  btn.className = 'btn btn-stop btn-lg';
+  document.getElementById('timerBtnIcon').textContent = '⏹';
+  document.getElementById('timerBtnText').textContent = '停止計時';
+
+  const client  = data.clients.find(c => c.id === clientId);
+  const project = data.projects.find(p => p.id === projectId);
+  document.getElementById('timerContext').innerHTML =
+    `<span class="running-dot"></span> ${escHtml(client?.name||'')} — ${escHtml(project?.name||'')}`;
+
+  timerInterval = setInterval(updateTimerDisplay, 1000);
+  updateTimerDisplay();
+  showToast('計時開始');
+}
+
+function stopTimer() {
+  if (!timerRunning || !currentRecord) return;
+  clearInterval(timerInterval);
+  timerRunning = false;
+
+  const endTime  = Date.now();
+  const duration = Math.floor((endTime - timerStart) / 1000);
+
+  const record = {
+    id:        uid(),
+    clientId:  currentRecord.clientId,
+    projectId: currentRecord.projectId,
+    date:      new Date().toLocaleDateString('zh-TW'),
+    dateISO:   new Date().toISOString().slice(0,10),
+    start:     new Date(timerStart).toLocaleTimeString('zh-TW'),
+    end:       new Date(endTime).toLocaleTimeString('zh-TW'),
+    duration,
+    note:      document.getElementById('workNote').value.trim()
+  };
+  data.records.push(record);
+  saveData();
+
+  const btn = document.getElementById('timerBtn');
+  btn.className = 'btn btn-start btn-lg';
+  document.getElementById('timerBtnIcon').textContent = '▶';
+  document.getElementById('timerBtnText').textContent = '開始計時';
+  document.getElementById('timerContext').textContent = '計時結束';
+  document.getElementById('cumulativeDisplay').textContent = formatDuration(getProjectCumulative(record.projectId));
+  document.getElementById('timerDisplay').textContent = '00:00:00';
+
+  currentRecord = null;
+  document.getElementById('workNote').value = '';
+  showToast(`計時結束，本次 ${formatDuration(duration)}`);
+
+  // 自動同步到 Google Sheets
+  const s = getSyncSettings();
+  if (s.autoSync && getScriptUrl()) {
+    setTimeout(async () => {
+      const ok = await syncRecord(record);
+      if (s.showSyncNotif) {
+        showToast(ok ? '☁️ 已同步到 Google Sheets' : '⚠️ 同步失敗，可至雲端頁面手動同步');
+      }
+    }, 900);
+  }
+}
+
+function updateTimerDisplay() {
+  if (!timerRunning) return;
+  const elapsed = Math.floor((Date.now() - timerStart) / 1000);
+  document.getElementById('timerDisplay').textContent = formatDuration(elapsed);
+}
+
+/* ============================================================
+   計時紀錄頁
+   ============================================================ */
+function renderRecords() {
+  const filterCid = document.getElementById('filterClient')?.value || '';
+  const filterPid = document.getElementById('filterProject')?.value || '';
+
+  const fps = document.getElementById('filterProject');
+  if (fps) {
+    const cur   = fps.value;
+    const projs = filterCid ? data.projects.filter(p => p.clientId === filterCid) : data.projects;
+    fps.innerHTML = '<option value="">全部專案</option>' +
+      projs.map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('');
+    if (cur) fps.value = cur;
+  }
+
+  let records = [...data.records];
+  if (filterCid) records = records.filter(r => r.clientId  === filterCid);
+  if (filterPid) records = records.filter(r => r.projectId === filterPid);
+  records.sort((a,b) => b.dateISO > a.dateISO ? 1 : -1);
+
+  const totalSec      = records.reduce((s,r) => s + (r.duration||0), 0);
+  const uniqueClients = new Set(records.map(r => r.clientId)).size;
+  const uniqueProjs   = new Set(records.map(r => r.projectId)).size;
+  document.getElementById('recordStats').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${records.length}</div><div class="stat-label">紀錄筆數</div></div>
+    <div class="stat-card"><div class="stat-value">${formatDuration(totalSec)}</div><div class="stat-label">總計時間</div></div>
+    <div class="stat-card"><div class="stat-value">${uniqueClients}</div><div class="stat-label">委託人數</div></div>
+    <div class="stat-card"><div class="stat-value">${uniqueProjs}</div><div class="stat-label">專案數</div></div>`;
+
+  const tbody = document.getElementById('recordsBody');
+  if (!records.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">無符合條件的紀錄</td></tr>';
+    return;
+  }
+  tbody.innerHTML = records.map(r => {
+    const client  = data.clients.find(c => c.id === r.clientId);
+    const project = data.projects.find(p => p.id === r.projectId);
+    return `<tr>
+      <td>${r.date}<div style="font-size:.75rem;color:var(--text-muted);">${r.start}–${r.end}</div></td>
+      <td>${escHtml(client?.name||'(已刪除)')}</td>
+      <td>${escHtml(project?.name||'(已刪除)')}</td>
+      <td style="max-width:200px;font-size:.85rem;">${escHtml(r.note||'—')}</td>
+      <td><strong>${formatDuration(r.duration||0)}</strong></td>
+      <td><button class="btn btn-sm" style="background:#fee2e2;color:var(--danger);border:none;" onclick="deleteRecord('${r.id}')">刪除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function deleteRecord(id) {
+  if (!confirm('確定要刪除此紀錄？')) return;
+  data.records = data.records.filter(r => r.id !== id);
+  saveData();
+  renderRecords();
+}
+
+/* ============================================================
+   專案總覽頁
+   ============================================================ */
+function renderProjectsOverview() {
+  const container = document.getElementById('projectsOverview');
+  if (!data.projects.length) { container.innerHTML = '<div class="empty">尚無專案資料</div>'; return; }
+  const groups = {};
+  data.clients.forEach(c => { groups[c.id] = { name: c.name, projects: [] }; });
+  data.projects.forEach(p => {
+    if (!groups[p.clientId]) groups[p.clientId] = { name:'(已刪除)', projects:[] };
+    groups[p.clientId].projects.push(p);
+  });
+  let html = '';
+  Object.entries(groups).forEach(([cid, g]) => {
+    if (!g.projects.length) return;
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-weight:700;color:var(--primary);margin-bottom:10px;">👤 ${escHtml(g.name)}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>專案名稱</th><th>截止日期</th><th>距截止</th><th>累計時間</th><th>紀錄數</th></tr></thead>
+        <tbody>`;
+    g.projects.forEach(p => {
+      const cum      = getProjectCumulative(p.id);
+      const recCount = data.records.filter(r => r.projectId === p.id).length;
+      const dLeft    = deadlineDaysLeft(p.deadline);
+      let daysCell   = '—';
+      if (dLeft !== null) {
+        if      (dLeft < 0)  daysCell = `<span class="deadline-danger">已逾期 ${Math.abs(dLeft)} 天</span>`;
+        else if (dLeft === 0) daysCell = `<span class="deadline-danger">今日到期！</span>`;
+        else if (dLeft <= 3) daysCell = `<span class="deadline-danger">⚠ 剩 ${dLeft} 天</span>`;
+        else if (dLeft <= 7) daysCell = `<span class="deadline-warn">剩 ${dLeft} 天</span>`;
+        else                 daysCell = `<span class="deadline-ok">剩 ${dLeft} 天</span>`;
+      }
+      html += `<tr>
+        <td><strong>${escHtml(p.name)}</strong></td>
+        <td>${p.deadline||'無期限'}</td>
+        <td>${daysCell}</td>
+        <td><strong>${formatDuration(cum)}</strong></td>
+        <td>${recCount}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div></div>';
+  });
+  container.innerHTML = html || '<div class="empty">尚無資料</div>';
+}
+
+/* ============================================================
+   累計時間
+   ============================================================ */
+function getProjectCumulative(projectId) {
+  return data.records.filter(r => r.projectId === projectId).reduce((s,r) => s + (r.duration||0), 0);
+}
+
+/* ============================================================
+   截止日期提醒
+   ============================================================ */
+function checkDeadlines() {
+  const banner  = document.getElementById('alertBanner');
+  const list    = document.getElementById('alertList');
+  const warnings = [];
+
+  data.projects.forEach(p => {
+    if (!p.deadline || p.archived) return;
+    const d      = deadlineDaysLeft(p.deadline);
+    if (d === null) return;
+    const client = data.clients.find(c => c.id === p.clientId);
+    const cn     = client ? client.name : '(未知)';
+    if (d < 0) {
+      warnings.push(`【${cn}】${p.name} — <strong style="color:var(--danger);">已逾期 ${Math.abs(d)} 天</strong>（${p.deadline}）`);
+      scheduleNotification('專案逾期', `【${cn}】${p.name} 已逾期 ${Math.abs(d)} 天！`);
+    } else if (d === 0) {
+      warnings.push(`【${cn}】${p.name} — <strong style="color:var(--danger);">今日到期！</strong>`);
+      scheduleNotification('今日到期', `【${cn}】${p.name} 今天到期，請立即處理！`);
+    } else if (d <= 3) {
+      warnings.push(`【${cn}】${p.name} — <strong style="color:var(--danger);">還有 ${d} 天到期</strong>（${p.deadline}）`);
+      scheduleNotification('期限將至', `【${cn}】${p.name} 剩 ${d} 天！`);
+    } else if (d <= 7) {
+      warnings.push(`【${cn}】${p.name} — 還有 ${d} 天到期（${p.deadline}）`);
+    }
+  });
+
+  if (warnings.length) {
+    list.innerHTML = warnings.map(w => `<li>${w}</li>`).join('');
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function deadlineDaysLeft(deadline) {
+  if (!deadline) return null;
+  const d     = new Date(deadline); d.setHours(0,0,0,0);
+  const today = new Date();         today.setHours(0,0,0,0);
+  return Math.round((d - today) / 86400000);
+}
+
+function deadlineStatus(deadline) {
+  const d = deadlineDaysLeft(deadline);
+  if (d === null)  return '<span style="color:var(--text-muted);font-size:.8rem;">無期限</span>';
+  if (d < 0)       return `<span class="badge badge-danger">逾期 ${Math.abs(d)} 天</span>`;
+  if (d === 0)     return `<span class="badge badge-danger">今日到期</span>`;
+  if (d <= 3)      return `<span class="badge badge-danger">剩 ${d} 天</span>`;
+  if (d <= 7)      return `<span class="badge badge-warning">剩 ${d} 天</span>`;
+  return           `<span class="badge badge-success">剩 ${d} 天</span>`;
+}
+
+/* ============================================================
+   瀏覽器通知
+   ============================================================ */
+function checkNotifPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') document.getElementById('notifBar').style.display = 'flex';
+}
+function requestNotifPermission() {
+  Notification.requestPermission().then(p => {
+    document.getElementById('notifBar').style.display = 'none';
+    showToast(p === 'granted' ? '通知已啟用' : '通知未開啟');
+  });
+}
+let _lastNotif = {};
+function scheduleNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const key = title + body;
+  if (_lastNotif[key] && Date.now() - _lastNotif[key] < 3600000) return;
+  _lastNotif[key] = Date.now();
+  new Notification(title, { body });
+}
+
+/* ============================================================
+   匯出 CSV
+   ============================================================ */
+function exportCSV() {
+  const filterCid = document.getElementById('filterClient')?.value || '';
+  const filterPid = document.getElementById('filterProject')?.value || '';
+  let records = [...data.records];
+  if (filterCid) records = records.filter(r => r.clientId  === filterCid);
+  if (filterPid) records = records.filter(r => r.projectId === filterPid);
+
+  const rows = [['日期','開始','結束','委託人','專案','工作內容','本次時間(秒)','本次時間']];
+  records.forEach(r => {
+    const c = data.clients.find(x => x.id === r.clientId);
+    const p = data.projects.find(x => x.id === r.projectId);
+    rows.push([r.date, r.start, r.end, c?.name||'', p?.name||'', r.note||'', r.duration||0, formatDuration(r.duration||0)]);
+  });
+  const csv  = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff'+csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = '律師計時紀錄_' + new Date().toLocaleDateString('zh-TW').replace(/\//g,'-') + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   清除全部
+   ============================================================ */
+function clearAllData() {
+  if (!confirm('⚠️ 確定要清除所有資料？此操作無法還原！')) return;
+  if (!confirm('再次確認：清除全部資料？')) return;
+  data = { clients:[], projects:[], records:[] };
+  saveData();
+  populateAllDropdowns();
+  renderRecords();
+  renderManageProjects();
+  renderProjectsOverview();
+  checkDeadlines();
+  showToast('已清除全部資料');
+}
+
+/* ============================================================
+   Google Sheets 串接
+   ============================================================ */
+
+// ── 設定存取 ─────────────────────────────────────────────
+function getScriptUrl() {
+  return localStorage.getItem('appsScriptUrl') || '';
+}
+function saveScriptUrl() {
+  const url = document.getElementById('appsScriptUrl').value.trim();
+  localStorage.setItem('appsScriptUrl', url);
+}
+function getSyncSettings() {
+  return {
+    autoSync:      localStorage.getItem('autoSync') === 'true',
+    showSyncNotif: localStorage.getItem('showSyncNotif') !== 'false'
+  };
+}
+function saveSettings() {
+  localStorage.setItem('autoSync',      document.getElementById('autoSyncToggle').checked);
+  localStorage.setItem('showSyncNotif', document.getElementById('showSyncNotif').checked);
+}
+
+// ── 已同步 ID 管理 ─────────────────────────────────────
+function getSyncedIds() {
+  try { return JSON.parse(localStorage.getItem('syncedIds') || '[]'); } catch(e) { return []; }
+}
+function markSynced(ids) {
+  const merged = [...new Set([...getSyncedIds(), ...ids])];
+  localStorage.setItem('syncedIds', JSON.stringify(merged));
+}
+
+// ── 載入雲端頁面 ──────────────────────────────────────
+function loadSheetsTab() {
+  const url = getScriptUrl();
+  const el  = document.getElementById('appsScriptUrl');
+  if (el && url) el.value = url;
+
+  const s  = getSyncSettings();
+  const at = document.getElementById('autoSyncToggle');
+  const sn = document.getElementById('showSyncNotif');
+  if (at) at.checked = s.autoSync;
+  if (sn) sn.checked = s.showSyncNotif;
+
+  refreshSyncStats();
+}
+
+// ── 統計更新 ─────────────────────────────────────────
+function refreshSyncStats() {
+  const synced  = getSyncedIds();
+  const total   = data.records.length;
+  const pending = data.records.filter(r => !synced.includes(r.id)).length;
+  const el1 = document.getElementById('syncPendingCount');
+  const el2 = document.getElementById('syncedCount');
+  const el3 = document.getElementById('lastSyncTime');
+  if (el1) el1.textContent = pending;
+  if (el2) el2.textContent = total - pending;
+  if (el3) el3.textContent = localStorage.getItem('lastSyncTime') || '從未';
+}
+
+// ── 同步紀錄 Log ──────────────────────────────────────
+function addSyncLog(msg, type) {
+  const log = document.getElementById('syncLog');
+  if (!log) return;
+  const color = type === 'ok' ? 'var(--success)' : type === 'err' ? 'var(--danger)' : 'var(--text-muted)';
+  const time  = new Date().toLocaleTimeString('zh-TW');
+  const empty = log.querySelector('.empty');
+  if (empty) empty.remove();
+  const entry = document.createElement('div');
+  entry.style.cssText = `padding:5px 0;border-bottom:1px solid var(--border);color:${color};`;
+  entry.innerHTML     = `<span style="color:var(--text-muted);">[${time}]</span> ${msg}`;
+  log.insertBefore(entry, log.firstChild);
+  while (log.children.length > 30) log.removeChild(log.lastChild);
+}
+
+// ── 測試連線 ─────────────────────────────────────────
+async function testConnection() {
+  const url = getScriptUrl();
+  if (!url) { showToast('請先填入 Apps Script URL'); return; }
+  const el = document.getElementById('connStatus');
+  if (el) el.innerHTML = '<span style="color:var(--text-muted);">連線中…</span>';
+  try {
+    const resp = await fetch(url + '?action=ping', { mode:'cors' });
+    const json = await resp.json();
+    if (json.ok) {
+      if (el) el.innerHTML = '<span style="color:var(--success);">✅ 連線成功</span>';
+      addSyncLog('連線測試成功', 'ok');
+      showToast('✅ Google Sheets 連線成功！');
+    } else {
+      throw new Error(json.error || 'API 回應異常');
+    }
+  } catch(e) {
+    if (el) el.innerHTML = '<span style="color:var(--danger);">❌ 連線失敗</span>';
+    addSyncLog('連線測試失敗：' + e.message, 'err');
+    showToast('❌ 連線失敗，請確認 URL');
+  }
+}
+
+// ── 單筆自動同步 ─────────────────────────────────────
+async function syncRecord(record) {
+  const url = getScriptUrl();
+  if (!url) return false;
+  const client  = data.clients.find(c => c.id === record.clientId);
+  const project = data.projects.find(p => p.id === record.projectId);
+  const payload = {
+    action: 'addRecord',
+    data: {
+      recordId:    record.id,
+      clientName:  client?.name  || '(未知)',
+      projectName: project?.name || '(未知)',
+      deadline:    project?.deadline || '',
+      date:        record.date,
+      dateISO:     record.dateISO,
+      start:       record.start,
+      end:         record.end,
+      duration:    record.duration,
+      note:        record.note || ''
+    }
+  };
+  try {
+    const resp = await fetch(url, {
+      method:  'POST',
+      mode:    'cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(payload)
+    });
+    const json = await resp.json();
+    if (json.ok) {
+      markSynced([record.id]);
+      addSyncLog(`✅ ${payload.data.clientName} / ${payload.data.projectName} (${formatDuration(record.duration)})`, 'ok');
+      refreshSyncStats();
+      return true;
+    }
+    throw new Error(json.error || '未知錯誤');
+  } catch(e) {
+    addSyncLog('❌ 單筆同步失敗：' + e.message, 'err');
+    return false;
+  }
+}
+
+// ── 全量同步 ─────────────────────────────────────────
+async function syncAllToSheets() {
+  const url = getScriptUrl();
+  if (!url) { showToast('請先設定 Apps Script URL'); switchTab('sheets', document.querySelector('.tab-btn:last-child')); return; }
+  showToast('☁️ 同步中，請稍候…');
+  addSyncLog('開始全量同步…', 'info');
+  const payload = {
+    action: 'syncAll',
+    data:   { records: data.records, clients: data.clients, projects: data.projects }
+  };
+  try {
+    const resp = await fetch(url, {
+      method:  'POST',
+      mode:    'cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify(payload)
+    });
+    const json = await resp.json();
+    if (json.ok) {
+      const r   = json.result;
+      const now = new Date().toLocaleString('zh-TW');
+      markSynced(data.records.map(rec => rec.id));
+      localStorage.setItem('lastSyncTime', now);
+      const el3 = document.getElementById('lastSyncTime');
+      if (el3) el3.textContent = now;
+      addSyncLog(`✅ 全量同步完成：新增 ${r.added} 筆，略過 ${r.skipped} 筆`, 'ok');
+      showToast(`✅ 同步完成！新增 ${r.added} 筆`);
+      refreshSyncStats();
+    } else {
+      throw new Error(json.error || '未知錯誤');
+    }
+  } catch(e) {
+    addSyncLog('❌ 全量同步失敗：' + e.message, 'err');
+    showToast('❌ 同步失敗：' + e.message);
+  }
+}
+
+/* ============================================================
+   工具函數
+   ============================================================ */
+function formatDuration(sec) {
+  if (!sec || sec < 0) return '00:00:00';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _toastTimeout = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (_toastTimeout) clearTimeout(_toastTimeout);
+  _toastTimeout = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ============================================================
+   啟動
+   ============================================================ */
+init();
+</script>
+</body>
+</html>
