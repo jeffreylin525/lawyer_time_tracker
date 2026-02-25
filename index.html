@@ -1265,7 +1265,15 @@ async function pullFromSheets() {
 
   addSyncLog('📥 正在從 Sheets 讀取資料…', 'info');
   try {
-    const resp = await fetch(url + '?action=getAll', { mode: 'cors' });
+    // 💡 修改點：改用 POST 請求傳遞 action，避開 Safari 轉址阻擋
+    const payload = { action: 'getAll' };
+    const resp = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const json = await resp.json();
     if (!json.ok) throw new Error(json.error || '讀取失敗');
@@ -1273,7 +1281,7 @@ async function pullFromSheets() {
     const remoteClients = json.clients || [];
     const remoteRecords = json.records || [];
     addSyncLog(`📥 Sheets 回傳：${remoteClients.length} 委託人，${remoteRecords.length} 筆紀錄`, 'info');
-
+    
     let newClients = 0, newProjects = 0, newRecords = 0, skipped = 0;
 
     // ① 合併委託人（以名稱去重）
